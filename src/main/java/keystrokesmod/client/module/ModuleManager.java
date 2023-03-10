@@ -33,6 +33,7 @@ public class ModuleManager {
       addModule(new ClickAssist());
       addModule(new DelayRemover());
       addModule(new HitBox());
+      addModule(new SuperKnockBack());
       addModule(new Reach());
       addModule(new Velocity());
       addModule(new BHop());

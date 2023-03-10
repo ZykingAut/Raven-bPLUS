@@ -32,6 +32,7 @@ public class CommandManager {
         this.addCommand(new Shoutout());
         this.addCommand(new Uwu());
         this.addCommand(new Friends());
+        this.addCommand(new Enemies());
         this.addCommand(new VersionCommand());
         this.addCommand(new F3Name());
 

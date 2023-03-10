@@ -3,15 +3,13 @@ package keystrokesmod.client.module.modules.combat;
 import keystrokesmod.client.main.Raven;
 import keystrokesmod.client.module.Module;
 import keystrokesmod.client.module.modules.player.RightClicker;
+import keystrokesmod.client.module.modules.world.AntiBot;
 import keystrokesmod.client.module.setting.impl.SliderSetting;
 import keystrokesmod.client.module.setting.impl.TickSetting;
-import keystrokesmod.client.module.modules.world.AntiBot;
 import keystrokesmod.client.utils.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockLiquid;
-import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.BlockPos;
@@ -31,7 +29,9 @@ public class AimAssist extends Module {
    public static TickSetting breakBlocks;
    public static TickSetting blatantMode;
    public static TickSetting ignoreFriends;
+   public static TickSetting onlyEnemies;
    public static ArrayList<Entity> friends = new ArrayList<>();
+   public static ArrayList<Entity> enemies = new ArrayList<>();
 
    public AimAssist() {
       super("AimAssist", ModuleCategory.combat);
@@ -46,6 +46,7 @@ public class AimAssist extends Module {
       this.registerSetting(weaponOnly = new TickSetting("Weapon only", false));
       this.registerSetting(aimInvis = new TickSetting("Aim invis", false));
       this.registerSetting(blatantMode = new TickSetting("Blatant mode", false));
+      this.registerSetting(onlyEnemies = new TickSetting("Only Enemies", false));
    }
 
    public void update() {
@@ -59,7 +60,7 @@ public class AimAssist extends Module {
             BlockPos p = mc.objectMouseOver.getBlockPos();
             if (p != null) {
                Block bl = mc.theWorld.getBlockState(p).getBlock();
-               if (bl != Blocks.air && !(bl instanceof BlockLiquid) && bl instanceof  Block) {
+               if (bl != Blocks.air && !(bl instanceof BlockLiquid) && bl != null) {
                   return;
                }
             }
@@ -89,11 +90,54 @@ public class AimAssist extends Module {
                      }
                   }
                }
-
             }
          }
       }
 
+
+   public static boolean isNotEnemy(Entity entity) {
+      if (entity == mc.thePlayer) return false;
+
+      for (Entity player : enemies){
+         if (player.equals(entity))
+            return false;
+      }
+      try {
+         EntityPlayer bruhentity = (EntityPlayer) entity;
+         if (Raven.debugger){
+            Utils.Player.sendMessageToSelf("unformatted / " + bruhentity.getDisplayName().getUnformattedText().replace("§", "%"));
+
+            Utils.Player.sendMessageToSelf("susbstring entity / " + bruhentity.getDisplayName().getUnformattedText().substring(0, 2));
+            Utils.Player.sendMessageToSelf("substring player / " + mc.thePlayer.getDisplayName().getUnformattedText().substring(0, 2));
+         }
+      } catch (Exception fhwhfhwe) {
+         if(Raven.debugger) {
+            Utils.Player.sendMessageToSelf(fhwhfhwe.getMessage());
+         }
+      }
+      return true;
+   }
+
+   public static void addEnemy(Entity entityPlayer) { enemies.add(entityPlayer); }
+
+   public static boolean addEnemy(String name) {
+      boolean found = false;
+      for (Entity entity:mc.theWorld.getLoadedEntityList()) {
+         if (entity.getName().equalsIgnoreCase(name) || entity.getCustomNameTag().equalsIgnoreCase(name)) {
+            if(isNotEnemy(entity)) {
+               addEnemy(entity);
+               found = true;
+            }
+         }
+      }
+      return found;
+   }
+
+   public static boolean removeEnemy(String name) {
+      int length = enemies.size();
+      enemies.removeIf((Entity entity) -> entity.getName().equalsIgnoreCase(name));
+      return length > enemies.size();
+   }
 
    public static boolean isAFriend(Entity entity) {
       if(entity == mc.thePlayer) return true;
@@ -110,49 +154,15 @@ public class AimAssist extends Module {
             Utils.Player.sendMessageToSelf("susbstring entity / " + bruhentity.getDisplayName().getUnformattedText().substring(0, 2));
             Utils.Player.sendMessageToSelf("substring player / " + mc.thePlayer.getDisplayName().getUnformattedText().substring(0, 2));
          }
-         if(mc.thePlayer.isOnSameTeam((EntityLivingBase) entity) || mc.thePlayer.getDisplayName().getUnformattedText().startsWith(bruhentity.getDisplayName().getUnformattedText().substring(0, 2))) return true;
       } catch (Exception fhwhfhwe) {
          if(Raven.debugger) {
             Utils.Player.sendMessageToSelf(fhwhfhwe.getMessage());
          }
       }
-
-
-
       return false;
    }
 
-   public Entity getEnemy() {
-      int fov = (int) AimAssist.fov.getInput();
-      Iterator var2 = mc.theWorld.playerEntities.iterator();
-
-      EntityPlayer en;
-      do {
-         do {
-            do {
-               do {
-                  do {
-                     do {
-                        do {
-                           if (!var2.hasNext()) {
-                              return null;
-                           }
-
-                           en = (EntityPlayer) var2.next();
-                        } while (ignoreFriends.isToggled() && isAFriend(en));
-                     } while(en == mc.thePlayer);
-                  } while(en.isDead);
-               } while(!aimInvis.isToggled() && en.isInvisible());
-            } while((double)mc.thePlayer.getDistanceToEntity(en) > distance.getInput());
-         } while(AntiBot.bot(en));
-      } while(!blatantMode.isToggled() && !Utils.Player.fov(en, (float)fov));
-
-      return en;
-   }
-
-   public static void addFriend(Entity entityPlayer) {
-      friends.add(entityPlayer);
-   }
+   public static void addFriend(Entity entityPlayer) { friends.add(entityPlayer); }
 
    public static boolean addFriend(String name) {
       boolean found = false;
@@ -164,22 +174,13 @@ public class AimAssist extends Module {
             }
          }
       }
-
       return found;
    }
 
    public static boolean removeFriend(String name) {
-      boolean removed = false;
-      boolean found = false;
-      for (NetworkPlayerInfo networkPlayerInfo : new ArrayList<>(mc.getNetHandler().getPlayerInfoMap())) {
-         Entity entity = mc.theWorld.getPlayerEntityByName(networkPlayerInfo.getDisplayName().getUnformattedText());
-         if (entity.getName().equalsIgnoreCase(name) || entity.getCustomNameTag().equalsIgnoreCase(name)) {
-            removed = removeFriend(entity);
-            found = true;
-         }
-      }
-
-      return found && removed;
+      int length = friends.size();
+      friends.removeIf((Entity entity) -> entity.getName().equalsIgnoreCase(name));
+      return length > friends.size();
    }
 
    public static boolean removeFriend(Entity entityPlayer) {
@@ -192,7 +193,39 @@ public class AimAssist extends Module {
       return true;
    }
 
-   public static ArrayList<Entity> getFriends() {
-      return friends;
+   public static ArrayList<Entity> getFriends() { return friends; }
+
+   public static ArrayList<Entity> getEnemies() { return enemies; }
+
+   public Entity getEnemy() {
+      int fov = (int) AimAssist.fov.getInput();
+      Iterator<EntityPlayer> var2 = mc.theWorld.playerEntities.iterator();
+
+      EntityPlayer en;
+      do {
+         do {
+            do {
+               do {
+                  do {
+                     do {
+                        do {
+                           do {
+                              if (!var2.hasNext()) {
+                                 return null;
+                              }
+
+                              en = var2.next();
+                           } while (ignoreFriends.isToggled() && isAFriend(en));
+                        } while (en == mc.thePlayer);
+                     } while (onlyEnemies.isToggled() && isNotEnemy(en));
+                  } while(en.isDead);
+               } while(!aimInvis.isToggled() && en.isInvisible());
+            } while((double)mc.thePlayer.getDistanceToEntity(en) > distance.getInput());
+         } while(AntiBot.bot(en));
+      } while(!blatantMode.isToggled() && !Utils.Player.fov(en, (float)fov));
+
+      return en;
    }
+
 }
+
